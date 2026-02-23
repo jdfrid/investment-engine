@@ -8,16 +8,14 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
-if str(_ROOT / "src") not in sys.path:
-    sys.path.insert(0, str(_ROOT / "src"))
 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
 
-from backtest.runner import run_backtest
-from config.symbols import DEFAULT_SYMBOLS
+from src.backtest.runner import run_backtest
+from src.config.symbols import DEFAULT_SYMBOLS
 
 
 st.set_page_config(

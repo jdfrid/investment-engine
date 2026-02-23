@@ -7,10 +7,9 @@ from pathlib import Path
 # הוספת נתיב הפרויקט
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT))
-sys.path.insert(0, str(_ROOT / "src"))
 
-from backtest.runner import run_backtest
-from config.symbols import DEFAULT_SYMBOLS
+from src.backtest.runner import run_backtest
+from src.config.symbols import DEFAULT_SYMBOLS
 
 
 def main():
