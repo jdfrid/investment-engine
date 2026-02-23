@@ -5,12 +5,12 @@ import os
 import tempfile
 from pathlib import Path
 
-from ..data.fetcher import fetch_ohlcv
-from ..data.storage import save_to_cache, load_from_cache
-from ..data.converters import df_to_backtrader_feed, prepare_dataframe_for_backtrader
-from ..strategy.index_strategy import IndexRulesStrategy
-from ..analysis.metrics import compute_metrics
-from .equity_recorder import EquityRecorder
+from data.fetcher import fetch_ohlcv
+from data.storage import save_to_cache, load_from_cache
+from data.converters import df_to_backtrader_feed, prepare_dataframe_for_backtrader
+from strategy.index_strategy import IndexRulesStrategy
+from analysis.metrics import compute_metrics
+from backtest.equity_recorder import EquityRecorder
 
 # נתיב cache – בסביבת cloud (read-only) משתמשים ב-/tmp
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent

@@ -4,11 +4,13 @@
 import sys
 from pathlib import Path
 
-# הוספת src ל-path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# הוספת נתיב הפרויקט
+_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_ROOT))
+sys.path.insert(0, str(_ROOT / "src"))
 
-from src.backtest.runner import run_backtest
-from src.config.symbols import DEFAULT_SYMBOLS
+from backtest.runner import run_backtest
+from config.symbols import DEFAULT_SYMBOLS
 
 
 def main():
