@@ -54,10 +54,13 @@ with st.sidebar:
 
     st.divider()
     st.subheader("כלל Stop-Loss")
-    stop_loss = st.slider("מכור כשהמחיר ירד ב-%", 5, 50, 20) / 100
+    stop_loss = st.slider("מכור כשהמחיר ירד ב-%", 5, 50, 25) / 100
 
     st.subheader("כלל Take-Profit")
-    take_profit = st.slider("מכור רווח כשהמחיר עלה ב-%", 5, 50, 20) / 100
+    take_profit = st.slider("מכור רווח כשהמחיר עלה ב-%", 5, 50, 15) / 100
+
+    st.subheader("Re-Entry")
+    re_entry_days = st.slider("ממתין ימים לפני כניסה מחדש אחרי Stop-Loss", 1, 30, 5)
 
     st.divider()
     use_cache = st.checkbox("שימוש ב-cache (מהיר יותר)", value=True)
@@ -84,6 +87,7 @@ if run_btn:
                     initial_cash=float(initial_cash),
                     stop_loss_pct=stop_loss,
                     take_profit_pct=take_profit,
+                    re_entry_days=re_entry_days,
                     allocation_per_asset=1.0 / len(symbols),
                     use_cache=use_cache,
                 )
@@ -146,4 +150,4 @@ else:
     st.info("👈 בחר הגדרות ולחץ על **הרץ Backtest** כדי להתחיל")
 
 st.divider()
-st.caption("מנוע השקעות – Stop-Loss 20% | Take-Profit 20% | מדדים: SPY, QQQ, VOO, VTI")
+st.caption("מנוע השקעות – Stop-Loss 25% | Take-Profit 15% | Re-Entry 5 ימים | DCA חודשי")

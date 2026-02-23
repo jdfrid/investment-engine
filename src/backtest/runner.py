@@ -30,8 +30,9 @@ def run_backtest(
     start: str = "2020-01-01",
     end: str = "2024-12-31",
     initial_cash: float = 10000.0,
-    stop_loss_pct: float = 0.20,
-    take_profit_pct: float = 0.20,
+    stop_loss_pct: float = 0.25,
+    take_profit_pct: float = 0.15,
+    re_entry_days: int = 5,
     allocation_per_asset: float = 0.25,
     cache_dir: str | None = None,
     use_cache: bool = True,
@@ -63,6 +64,7 @@ def run_backtest(
         IndexRulesStrategy,
         stop_loss_pct=stop_loss_pct,
         take_profit_pct=take_profit_pct,
+        re_entry_days=re_entry_days,
         allocation_per_asset=allocation_per_asset,
     )
 
