@@ -9,7 +9,7 @@ from src.data.fetcher import fetch_ohlcv
 from src.data.storage import save_to_cache, load_from_cache
 from src.data.converters import df_to_backtrader_feed, prepare_dataframe_for_backtrader
 from src.strategy.index_strategy import IndexRulesStrategy
-from src.analysis.metrics import compute_metrics
+from src.analysis.metrics import compute_metrics, compute_metrics_from_strategy
 from src.backtest.equity_recorder import EquityRecorder
 
 # נתיב cache – בסביבת cloud (read-only) משתמשים ב-/tmp
@@ -31,8 +31,8 @@ def run_backtest(
     end: str = "2024-12-31",
     initial_cash: float = 10000.0,
     stop_loss_pct: float = 0.25,
-    take_profit_pct: float = 0.15,
-    re_entry_days: int = 5,
+    take_profit_pct: float = 0.20,
+    re_entry_days: int = 3,
     allocation_per_asset: float = 0.25,
     cache_dir: str | None = None,
     use_cache: bool = True,
@@ -77,6 +77,80 @@ def run_backtest(
     results = cerebro.run()
     metrics = compute_metrics(cerebro, results)
     return cerebro, results, metrics
+
+
+def run_optimization(
+    symbols: list[str] | None = None,
+    start: str = "2020-01-01",
+    end: str = "2024-12-31",
+    initial_cash: float = 10000.0,
+    cache_dir: str | None = None,
+    use_cache: bool = True,
+    max_combinations: int = 50,
+) -> tuple[dict, dict]:
+    """
+    מריץ אופטימיזציה על פרמטרים ומחזיר (best_params, best_metrics).
+    מדד אופטימלי: תשואה גבוהה + Sharpe חיובי + Drawdown נמוך.
+    """
+    if symbols is None:
+        symbols = ["SPY", "QQQ", "VOO", "VTI"]
+    if cache_dir is None:
+        cache_dir = _DEFAULT_CACHE
+
+    cerebro = bt.Cerebro(optreturn=False)
+    cerebro.broker.setcash(initial_cash)
+    cerebro.broker.setcommission(commission=0.0)
+
+    data_dict = _load_data(symbols, start, end, cache_dir, use_cache)
+    for sym, df in data_dict.items():
+        feed = df_to_backtrader_feed(df)
+        cerebro.adddata(feed, name=sym)
+
+    if not cerebro.datas:
+        raise ValueError("No data loaded.")
+
+    # טווחי פרמטרים לאופטימיזציה
+    cerebro.optstrategy(
+        IndexRulesStrategy,
+        stop_loss_pct=[0.20, 0.25, 0.30],
+        take_profit_pct=[0.10, 0.15, 0.20],
+        re_entry_days=[3, 5, 10],
+        allocation_per_asset=[1.0 / len(symbols)],
+    )
+
+    cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name="sharpe")
+    cerebro.addanalyzer(bt.analyzers.DrawDown, _name="drawdown")
+    cerebro.addanalyzer(bt.analyzers.Returns, _name="returns")
+    cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name="trades")
+    cerebro.addanalyzer(EquityRecorder, _name="equity")
+
+    opt_results = cerebro.run(maxcpus=1)
+
+    best_score = float("-inf")
+    best_params = {}
+    best_metrics = {}
+
+    for run in opt_results:
+        for strat in run:
+            params = strat.params
+            m = compute_metrics_from_strategy(strat, initial_cash)
+            ret = m.get("total_return_pct", 0) or 0
+            sharpe = m.get("sharpe_ratio", 0) or 0
+            dd = abs(m.get("max_drawdown_pct", 0) or 0)
+
+            # ציון: תשואה + בונוס ל-Sharpe חיובי - קנס ל-Drawdown
+            score = ret + (sharpe * 5 if sharpe > 0 else 0) - (dd * 0.3)
+
+            if score > best_score:
+                best_score = score
+                best_params = {
+                    "stop_loss_pct": params.stop_loss_pct,
+                    "take_profit_pct": params.take_profit_pct,
+                    "re_entry_days": params.re_entry_days,
+                }
+                best_metrics = m
+
+    return best_params, best_metrics
 
 
 def _load_data(

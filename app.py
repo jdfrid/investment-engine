@@ -14,7 +14,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 
-from src.backtest.runner import run_backtest
+from src.backtest.runner import run_backtest, run_optimization
 from src.config.symbols import DEFAULT_SYMBOLS
 
 
@@ -57,15 +57,16 @@ with st.sidebar:
     stop_loss = st.slider("מכור כשהמחיר ירד ב-%", 5, 50, 25) / 100
 
     st.subheader("כלל Take-Profit")
-    take_profit = st.slider("מכור רווח כשהמחיר עלה ב-%", 5, 50, 15) / 100
+    take_profit = st.slider("מכור רווח כשהמחיר עלה ב-%", 5, 50, 20) / 100
 
     st.subheader("Re-Entry")
-    re_entry_days = st.slider("ממתין ימים לפני כניסה מחדש אחרי Stop-Loss", 1, 30, 5)
+    re_entry_days = st.slider("ממתין ימים לפני כניסה מחדש אחרי Stop-Loss", 1, 30, 3)
 
     st.divider()
     use_cache = st.checkbox("שימוש ב-cache (מהיר יותר)", value=True)
 
     run_btn = st.button("▶️ הרץ Backtest", type="primary", use_container_width=True)
+    optimize_btn = st.button("🎯 אופטימיזציה – מצא פרמטרים אופטימליים", use_container_width=True)
     if st.button("🗑️ נקה תוצאות", use_container_width=True):
         for k in list(st.session_state.keys()):
             if k.startswith("last_"):
@@ -74,6 +75,32 @@ with st.sidebar:
 
 
 # --- Main: תוצאות ---
+if optimize_btn:
+    if not symbols:
+        st.error("❌ יש להזין לפחות מניה אחת")
+    else:
+        with st.spinner("מריץ אופטימיזציה על 27 קומבינציות... (2–5 דקות)"):
+            try:
+                best_params, best_metrics = run_optimization(
+                    symbols=symbols,
+                    start=start_date.strftime("%Y-%m-%d"),
+                    end=end_date.strftime("%Y-%m-%d"),
+                    initial_cash=float(initial_cash),
+                    use_cache=use_cache,
+                )
+                st.session_state["last_metrics"] = best_metrics
+                st.session_state["best_params"] = best_params
+                st.session_state["optimized"] = True
+                st.success("✅ אופטימיזציה הושלמה! פרמטרים אופטימליים:")
+                st.json({
+                    "Stop-Loss": f"{int(best_params.get('stop_loss_pct', 0)*100)}%",
+                    "Take-Profit": f"{int(best_params.get('take_profit_pct', 0)*100)}%",
+                    "Re-Entry ימים": best_params.get("re_entry_days", 5),
+                })
+            except Exception as e:
+                st.error(f"❌ שגיאה: {e}")
+                st.exception(e)
+
 if run_btn:
     if not symbols:
         st.error("❌ יש להזין לפחות מניה אחת")
@@ -94,6 +121,7 @@ if run_btn:
                 st.session_state["last_metrics"] = metrics
                 st.session_state["last_results"] = results
                 st.session_state["last_cerebro"] = cerebro
+                st.session_state["optimized"] = False
                 st.success("✅ Backtest הושלם בהצלחה!")
             except Exception as e:
                 st.error(f"❌ שגיאה: {e}")
@@ -101,6 +129,9 @@ if run_btn:
 
 if "last_metrics" in st.session_state:
     metrics = st.session_state["last_metrics"]
+
+    if st.session_state.get("optimized"):
+        st.info("🎯 **פרמטרים אופטימליים:** " + str(st.session_state.get("best_params", {})))
 
     st.header("📊 תוצאות")
 
@@ -150,4 +181,4 @@ else:
     st.info("👈 בחר הגדרות ולחץ על **הרץ Backtest** כדי להתחיל")
 
 st.divider()
-st.caption("מנוע השקעות – Stop-Loss 25% | Take-Profit 15% | Re-Entry 5 ימים | DCA חודשי")
+st.caption("מנוע השקעות – אופטימלי: Stop-Loss 25% | Take-Profit 20% | Re-Entry 3 ימים")

@@ -11,11 +11,11 @@ from .rules_engine import (
 
 class IndexRulesStrategy(bt.Strategy):
     params = (
-        ("stop_loss_pct", 0.25),      # 25% – פחות רגיש מ-20%
-        ("take_profit_pct", 0.15),    # 15% – רווח מוקדם יותר
+        ("stop_loss_pct", 0.25),      # 25% – אופטימלי
+        ("take_profit_pct", 0.20),    # 20% – אופטימלי
         ("allocation_per_asset", 0.25),
         ("min_cash_for_buy", 100.0),
-        ("re_entry_days", 5),         # ימים להמתנה אחרי Stop-Loss לפני כניסה מחדש
+        ("re_entry_days", 3),         # 3 ימים – אופטימלי
         ("dca_interval", 21),         # DCA: הקצאה נוספת כל 21 ימי מסחר (~חודש)
     )
 
