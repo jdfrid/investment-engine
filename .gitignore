@@ -2,7 +2,9 @@ venv/
 __pycache__/
 *.pyc
 .env
-data/
+# רק תיקיית cache בשורש – לא src/data/
+/data/
+data/cache/
 *.parquet
 .pytest_cache/
 .venv/
