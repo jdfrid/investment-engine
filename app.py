@@ -177,6 +177,47 @@ if "last_metrics" in st.session_state:
         fig.update_layout(height=400, margin=dict(l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
+    # פירוט עסקאות
+    trades_detail = metrics.get("trades_detail", [])
+    if trades_detail:
+        st.subheader("📋 פירוט עסקאות")
+        df_trades = pd.DataFrame(trades_detail)
+        # מיפוי עמודות לעברית
+        col_map = {
+            "symbol": "מוצר",
+            "entry_price": "מחיר קניה",
+            "exit_price": "מחיר מכירה",
+            "qty": "כמות",
+            "cost_buy": "עלות קניה",
+            "cost_sell": "עלות מכירה",
+            "pnl": "רווח/הפסד",
+            "pct": "אחוז",
+            "trend": "מגמה",
+            "type": "סוג",
+            "entry_date": "תאריך קניה",
+            "exit_date": "תאריך מכירה",
+        }
+        df_display = df_trades.rename(columns=col_map)
+        # סדר עמודות מועדף
+        display_cols = ["מוצר", "מחיר קניה", "מחיר מכירה", "כמות", "עלות קניה", "עלות מכירה", "אחוז", "רווח/הפסד", "מגמה", "סוג", "תאריך מכירה"]
+        display_cols = [c for c in display_cols if c in df_display.columns]
+        df_display = df_display[display_cols]
+        st.dataframe(
+            df_display,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "מחיר קניה": st.column_config.NumberColumn(format="dollar"),
+                "מחיר מכירה": st.column_config.NumberColumn(format="dollar"),
+                "עלות קניה": st.column_config.NumberColumn(format="dollar"),
+                "עלות מכירה": st.column_config.NumberColumn(format="dollar"),
+                "אחוז": st.column_config.NumberColumn(format="%.1f%%"),
+                "רווח/הפסד": st.column_config.NumberColumn(format="dollar"),
+            },
+        )
+    else:
+        st.caption("אין פירוט עסקאות (לא בוצעו מכירות)")
+
 else:
     st.info("👈 בחר הגדרות ולחץ על **הרץ Backtest** כדי להתחיל")
 

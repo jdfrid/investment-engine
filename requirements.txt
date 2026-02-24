@@ -12,6 +12,9 @@ pyarrow>=14.0
 # Utils
 python-dotenv>=1.0
 
+# Broker (Alpaca)
+alpaca-py>=0.14
+
 # Web UI
 streamlit>=1.28
 plotly>=5.18

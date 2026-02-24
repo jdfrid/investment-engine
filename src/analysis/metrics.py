@@ -35,6 +35,10 @@ def compute_metrics_from_strategy(strat, initial_value: float) -> dict[str, Any]
         metrics["won"] = 0
         metrics["lost"] = 0
     metrics["equity_curve"] = []
+    try:
+        metrics["trades_detail"] = getattr(strat, "closed_trades", [])
+    except Exception:
+        metrics["trades_detail"] = []
     return metrics
 
 
@@ -79,4 +83,8 @@ def compute_metrics(cerebro, results: list) -> dict[str, Any]:
         metrics["equity_curve"] = equity.get("equity_curve", [])
     except Exception:
         metrics["equity_curve"] = []
+    try:
+        metrics["trades_detail"] = getattr(strat, "closed_trades", [])
+    except Exception:
+        metrics["trades_detail"] = []
     return metrics

@@ -25,6 +25,8 @@ class IndexRulesStrategy(bt.Strategy):
         self.sell_dates: dict = {}    # symbol -> bar index כשמכרנו (Stop-Loss)
         self.initial_allocation_done = False
         self.last_dca_bar = 0
+        self.closed_trades: list = []  # פירוט עסקאות לניתוח
+        self._pending_sells: dict = {}  # symbol -> (entry_price, entry_date) לפני סגירה
 
     def next(self):
         """נקרא בכל בר (יום)"""
@@ -65,6 +67,7 @@ class IndexRulesStrategy(bt.Strategy):
                 action = evaluate_rules(state, rules)
 
                 if action == RuleAction.SELL_ALL:
+                    self._pending_sells[symbol] = (entry_price, self.entry_dates.get(symbol, ""))
                     self.close(data=data)
                     self.entry_prices.pop(symbol, None)
                     self.entry_dates.pop(symbol, None)
@@ -72,6 +75,7 @@ class IndexRulesStrategy(bt.Strategy):
                 elif action == RuleAction.SELL_PROFIT:
                     qty = calc_sell_profit_quantity(state)
                     if qty > 0:
+                        self._pending_sells[symbol] = (entry_price, self.entry_dates.get(symbol, ""), qty)
                         self.sell(data=data, size=round(qty, 6))
 
         # Re-Entry: קנייה מחדש אחרי Stop-Loss (כל יום – בודק אם עבר re_entry_days)
@@ -126,3 +130,34 @@ class IndexRulesStrategy(bt.Strategy):
                 self.entry_dates[symbol] = str(dt) if dt else ""
             except Exception:
                 self.entry_dates[symbol] = ""
+        elif order.issell() and hasattr(order, "data") and order.data is not None:
+            symbol = getattr(order.data, "_name", str(order.data))
+            pending = self._pending_sells.pop(symbol, None)
+            if pending:
+                entry_price = pending[0]
+                entry_date = pending[1] if len(pending) > 1 else ""
+                exit_price = order.executed.price
+                qty = order.executed.size
+                cost_buy = entry_price * qty
+                cost_sell = exit_price * qty
+                pnl = cost_sell - cost_buy
+                pct = (exit_price - entry_price) / entry_price * 100 if entry_price else 0
+                try:
+                    dt = getattr(order.executed, "dt", None)
+                    exit_date = str(dt) if dt else ""
+                except Exception:
+                    exit_date = ""
+                self.closed_trades.append({
+                    "symbol": symbol,
+                    "entry_price": entry_price,
+                    "exit_price": exit_price,
+                    "qty": qty,
+                    "cost_buy": cost_buy,
+                    "cost_sell": cost_sell,
+                    "pnl": pnl,
+                    "pct": pct,
+                    "trend": "רווח" if pnl >= 0 else "הפסד",
+                    "entry_date": entry_date,
+                    "exit_date": exit_date,
+                    "type": "Stop-Loss" if len(pending) == 2 else "Take-Profit",
+                })
