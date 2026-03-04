@@ -19,6 +19,30 @@ class IndexRulesStrategy(bt.Strategy):
         ("dca_interval", 21),         # DCA: הקצאה נוספת כל 21 ימי מסחר (~חודש)
     )
 
+    @staticmethod
+    def _format_date(d):
+        """ממיר תאריך לפורמט YYYY-MM-DD"""
+        if d is None:
+            return ""
+        if hasattr(d, "strftime"):
+            return d.strftime("%Y-%m-%d")
+        if isinstance(d, (int, float)):
+            try:
+                dt_obj = bt.num2date(d)
+                return dt_obj.strftime("%Y-%m-%d")
+            except Exception:
+                pass
+            try:
+                from datetime import datetime as dt
+                if 700000 < d < 800000:  # ordinal (matplotlib/Excel)
+                    return dt.fromordinal(int(d)).strftime("%Y-%m-%d")
+            except Exception:
+                pass
+        s = str(d)
+        if len(s) >= 10 and s[:10].replace("-", "").isdigit():
+            return s[:10]
+        return s[:10] if len(s) >= 10 else s
+
     def __init__(self):
         self.entry_prices: dict = {}
         self.entry_dates: dict = {}
@@ -126,8 +150,8 @@ class IndexRulesStrategy(bt.Strategy):
             symbol = getattr(order.data, "_name", str(order.data))
             self.entry_prices[symbol] = order.executed.price
             try:
-                dt = getattr(order.executed, "dt", None)
-                self.entry_dates[symbol] = str(dt) if dt else ""
+                exec_dt = getattr(order.executed, "dt", None)
+                self.entry_dates[symbol] = self._format_date(exec_dt)
             except Exception:
                 self.entry_dates[symbol] = ""
         elif order.issell() and hasattr(order, "data") and order.data is not None:
@@ -137,16 +161,16 @@ class IndexRulesStrategy(bt.Strategy):
                 entry_price = pending[0]
                 entry_date = pending[1] if len(pending) > 1 else ""
                 exit_price = order.executed.price
-                qty = order.executed.size
+                qty = abs(float(order.executed.size))
                 cost_buy = entry_price * qty
                 cost_sell = exit_price * qty
                 pnl = cost_sell - cost_buy
                 pct = (exit_price - entry_price) / entry_price * 100 if entry_price else 0
                 try:
-                    dt = getattr(order.executed, "dt", None)
-                    exit_date = str(dt) if dt else ""
+                    exec_dt = getattr(order.executed, "dt", None)
+                    exit_date = self._format_date(exec_dt) or self._format_date(self.datas[0].datetime.date(0))
                 except Exception:
-                    exit_date = ""
+                    exit_date = self._format_date(self.datas[0].datetime.date(0)) if len(self.datas) else ""
                 self.closed_trades.append({
                     "symbol": symbol,
                     "entry_price": entry_price,

@@ -63,6 +63,12 @@ with st.sidebar:
     re_entry_days = st.slider("ממתין ימים לפני כניסה מחדש אחרי Stop-Loss", 1, 30, 3)
 
     st.divider()
+    strategy_mode = st.selectbox(
+        "מצב אסטרטגיה",
+        ["index", "apote"],
+        format_func=lambda x: "מקורי (Index + Stop-Loss)" if x == "index" else "APOTE (מפרט מלא)",
+        help="APOTE: דירוג נכסים, מצב שוק, ניהול סיכונים, מקטעי סיכון",
+    )
     use_cache = st.checkbox("שימוש ב-cache (מהיר יותר)", value=True)
 
     run_btn = st.button("▶️ הרץ Backtest", type="primary", use_container_width=True)
@@ -117,6 +123,7 @@ if run_btn:
                     re_entry_days=re_entry_days,
                     allocation_per_asset=1.0 / len(symbols),
                     use_cache=use_cache,
+                    strategy_mode=strategy_mode,
                 )
                 st.session_state["last_metrics"] = metrics
                 st.session_state["last_results"] = results
@@ -182,6 +189,25 @@ if "last_metrics" in st.session_state:
     if trades_detail:
         st.subheader("📋 פירוט עסקאות")
         df_trades = pd.DataFrame(trades_detail)
+
+        def _fix_date(val):
+            """ממיר תאריך מספרי (737501) לפורמט YYYY-MM-DD"""
+            if val is None or (isinstance(val, str) and not val):
+                return ""
+            if isinstance(val, (int, float)) and 700000 < val < 800000:
+                try:
+                    return pd.Timestamp.fromordinal(int(val)).strftime("%Y-%m-%d")
+                except Exception:
+                    pass
+            if isinstance(val, str) and len(val) >= 10 and val[:10].replace("-", "").isdigit():
+                return val[:10]
+            return str(val)[:10] if len(str(val)) >= 10 else str(val)
+
+        if "entry_date" in df_trades.columns:
+            df_trades["entry_date"] = df_trades["entry_date"].apply(_fix_date)
+        if "exit_date" in df_trades.columns:
+            df_trades["exit_date"] = df_trades["exit_date"].apply(_fix_date)
+
         # מיפוי עמודות לעברית
         col_map = {
             "symbol": "מוצר",
@@ -198,23 +224,31 @@ if "last_metrics" in st.session_state:
             "exit_date": "תאריך מכירה",
         }
         df_display = df_trades.rename(columns=col_map)
-        # סדר עמודות מועדף
-        display_cols = ["מוצר", "מחיר קניה", "מחיר מכירה", "כמות", "עלות קניה", "עלות מכירה", "אחוז", "רווח/הפסד", "מגמה", "סוג", "תאריך מכירה"]
+        # סדר עמודות מועדף – כולל תאריכים
+        display_cols = ["מוצר", "תאריך קניה", "תאריך מכירה", "מחיר קניה", "מחיר מכירה", "כמות", "עלות קניה", "עלות מכירה", "אחוז", "רווח/הפסד", "מגמה", "סוג"]
         display_cols = [c for c in display_cols if c in df_display.columns]
         df_display = df_display[display_cols]
-        st.dataframe(
-            df_display,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "מחיר קניה": st.column_config.NumberColumn(format="dollar"),
-                "מחיר מכירה": st.column_config.NumberColumn(format="dollar"),
-                "עלות קניה": st.column_config.NumberColumn(format="dollar"),
-                "עלות מכירה": st.column_config.NumberColumn(format="dollar"),
-                "אחוז": st.column_config.NumberColumn(format="%.1f%%"),
-                "רווח/הפסד": st.column_config.NumberColumn(format="dollar"),
-            },
+
+        # עיצוב וצביעה – Styler (column_config עלול לדרוס צבעים)
+        def _color_negative(val):
+            if isinstance(val, (int, float)) and val < 0:
+                return "color: #dc3545; font-weight: bold"
+            return ""
+
+        fmt_dict = {
+            "מחיר קניה": "${:.2f}",
+            "מחיר מכירה": "${:.2f}",
+            "עלות קניה": "${:,.2f}",
+            "עלות מכירה": "${:,.2f}",
+            "אחוז": "{:+.1f}%",
+            "רווח/הפסד": "${:+,.2f}",
+        }
+        fmt_dict = {k: v for k, v in fmt_dict.items() if k in df_display.columns}
+        styled = (
+            df_display.style.format(fmt_dict, na_rep="-")
+            .map(_color_negative, subset=["אחוז", "רווח/הפסד"])
         )
+        st.dataframe(styled, use_container_width=True, hide_index=True)
     else:
         st.caption("אין פירוט עסקאות (לא בוצעו מכירות)")
 
@@ -222,4 +256,4 @@ else:
     st.info("👈 בחר הגדרות ולחץ על **הרץ Backtest** כדי להתחיל")
 
 st.divider()
-st.caption("מנוע השקעות – אופטימלי: Stop-Loss 25% | Take-Profit 20% | Re-Entry 3 ימים")
+st.caption("מנוע השקעות | Index: Stop-Loss 25% | Take-Profit 20% | APOTE: מפרט מלא")

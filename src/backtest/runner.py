@@ -9,6 +9,7 @@ from src.data.fetcher import fetch_ohlcv
 from src.data.storage import save_to_cache, load_from_cache
 from src.data.converters import df_to_backtrader_feed, prepare_dataframe_for_backtrader
 from src.strategy.index_strategy import IndexRulesStrategy
+from src.strategy.apote_strategy import ApoteStrategy
 from src.analysis.metrics import compute_metrics, compute_metrics_from_strategy
 from src.backtest.equity_recorder import EquityRecorder
 
@@ -37,22 +38,26 @@ def run_backtest(
     cache_dir: str | None = None,
     use_cache: bool = True,
     commission: float = 0.0,
+    strategy_mode: str = "index",
 ) -> tuple[bt.Cerebro, list, dict]:
     """
     מריץ backtest ומחזיר (cerebro, results, metrics).
+    strategy_mode: "index" = אסטרטגיה מקורית, "apote" = APOTE לפי המפרט
     """
     if symbols is None:
         symbols = ["SPY", "QQQ", "VOO", "VTI"]
     if cache_dir is None:
         cache_dir = _DEFAULT_CACHE
 
+    if strategy_mode == "apote":
+        from src.config.apote_config import ALL_APOTE_SYMBOLS
+        symbols = list(set(symbols + ALL_APOTE_SYMBOLS))[:12]
+
     cerebro = bt.Cerebro()
     cerebro.broker.setcash(initial_cash)
     cerebro.broker.setcommission(commission=commission)
 
-    # טען נתונים
     data_dict = _load_data(symbols, start, end, cache_dir, use_cache)
-
     for sym, df in data_dict.items():
         feed = df_to_backtrader_feed(df)
         cerebro.adddata(feed, name=sym)
@@ -60,13 +65,16 @@ def run_backtest(
     if not cerebro.datas:
         raise ValueError("No data loaded. Check symbols and date range.")
 
-    cerebro.addstrategy(
-        IndexRulesStrategy,
-        stop_loss_pct=stop_loss_pct,
-        take_profit_pct=take_profit_pct,
-        re_entry_days=re_entry_days,
-        allocation_per_asset=allocation_per_asset,
-    )
+    if strategy_mode == "apote":
+        cerebro.addstrategy(ApoteStrategy)
+    else:
+        cerebro.addstrategy(
+            IndexRulesStrategy,
+            stop_loss_pct=stop_loss_pct,
+            take_profit_pct=take_profit_pct,
+            re_entry_days=re_entry_days,
+            allocation_per_asset=allocation_per_asset,
+        )
 
     cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name="sharpe")
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name="drawdown")
