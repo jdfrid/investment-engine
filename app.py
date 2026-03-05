@@ -241,10 +241,23 @@ if "last_metrics" in st.session_state:
         # הוספת רמת סיכון לכל עסקה
         df_trades["level"] = df_trades["symbol"].apply(_symbol_to_level)
 
+        # הוספת "מה קרה" – אם חסר, נבנה מתוך הנתונים
+        if "what_happened" not in df_trades.columns:
+            def _build_what_happened(row):
+                t = row.get("type", "")
+                pct = row.get("pct", 0) or 0
+                if t == "Stop-Loss":
+                    return f"המחיר ירד ב-{abs(pct):.1f}% – הופעל Stop-Loss"
+                if t == "Take-Profit":
+                    return f"המחיר עלה ב-{pct:.1f}% – הופעל Take-Profit"
+                return f"שינוי {pct:+.1f}%"
+            df_trades["what_happened"] = df_trades.apply(_build_what_happened, axis=1)
+
         # מיפוי עמודות לעברית
         col_map = {
             "symbol": "מוצר",
             "level": "רמה",
+            "what_happened": "מה קרה",
             "entry_price": "מחיר קניה",
             "exit_price": "מחיר מכירה",
             "qty": "כמות",
@@ -258,8 +271,8 @@ if "last_metrics" in st.session_state:
             "exit_date": "תאריך מכירה",
         }
         df_display = df_trades.rename(columns=col_map)
-        # סדר עמודות מועדף – כולל רמה ותאריכים
-        display_cols = ["מוצר", "רמה", "תאריך קניה", "תאריך מכירה", "מחיר קניה", "מחיר מכירה", "כמות", "עלות קניה", "עלות מכירה", "אחוז", "רווח/הפסד", "מגמה", "סוג"]
+        # סדר עמודות מועדף – כולל "מה קרה"
+        display_cols = ["מוצר", "רמה", "מה קרה", "תאריך קניה", "תאריך מכירה", "מחיר קניה", "מחיר מכירה", "כמות", "עלות קניה", "עלות מכירה", "אחוז", "רווח/הפסד", "מגמה", "סוג"]
         display_cols = [c for c in display_cols if c in df_display.columns]
         df_display = df_display[display_cols]
 

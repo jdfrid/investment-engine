@@ -116,7 +116,7 @@ class ApoteStrategy(bt.Strategy):
                     exit_reason = "trailing_stop"
 
             if exit_reason:
-                self._pending_sells[symbol] = (entry_price, self.entry_dates.get(symbol, ""))
+                self._pending_sells[symbol] = (entry_price, self.entry_dates.get(symbol, ""), exit_reason)
                 self.close(data=data)
                 self.entry_prices.pop(symbol, None)
                 self.entry_dates.pop(symbol, None)
@@ -163,7 +163,9 @@ class ApoteStrategy(bt.Strategy):
             symbol = getattr(order.data, "_name", str(order.data))
             pending = self._pending_sells.pop(symbol, None)
             if pending:
-                entry_price, entry_date = pending[0], pending[1] if len(pending) > 1 else ""
+                entry_price = pending[0]
+                entry_date = pending[1] if len(pending) > 1 else ""
+                exit_reason = pending[2] if len(pending) > 2 else "exit"
                 exit_price = order.executed.price
                 qty = abs(float(order.executed.size))
                 cost_buy = entry_price * qty
@@ -175,6 +177,12 @@ class ApoteStrategy(bt.Strategy):
                     exit_date = dt.strftime("%Y-%m-%d") if hasattr(dt, "strftime") else str(dt)[:10]
                 except Exception:
                     exit_date = ""
+                _reason_desc = {
+                    "trend_reversal": "זוהה היפוך מגמה – מחיר מתחת ל-MA",
+                    "stop_loss": f"Stop-Loss דינמי (ATR) הופעל – ירידה של {abs(pct):.1f}%",
+                    "trailing_stop": f"Trailing Stop הופעל – ירידה של {abs(pct):.1f}% מהשיא",
+                }
+                what_happened = _reason_desc.get(exit_reason, f"יציאה – {exit_reason}")
                 self.closed_trades.append({
                     "symbol": symbol,
                     "entry_price": entry_price,
@@ -188,5 +196,6 @@ class ApoteStrategy(bt.Strategy):
                     "entry_date": entry_date,
                     "exit_date": exit_date,
                     "type": "APOTE",
+                    "what_happened": what_happened,
                 })
                 self.logger.log(symbol, "SELL", qty, exit_price, "exit_rule")

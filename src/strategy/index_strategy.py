@@ -171,6 +171,11 @@ class IndexRulesStrategy(bt.Strategy):
                     exit_date = self._format_date(exec_dt) or self._format_date(self.datas[0].datetime.date(0))
                 except Exception:
                     exit_date = self._format_date(self.datas[0].datetime.date(0)) if len(self.datas) else ""
+                trade_type = "Stop-Loss" if len(pending) == 2 else "Take-Profit"
+                if trade_type == "Stop-Loss":
+                    what_happened = f"המחיר ירד ב-{abs(pct):.1f}% מהקניה – הופעל Stop-Loss, נמכרה כל הפוזיציה"
+                else:
+                    what_happened = f"המחיר עלה ב-{pct:.1f}% מהקניה – הופעל Take-Profit, נמכר רווח בלבד"
                 self.closed_trades.append({
                     "symbol": symbol,
                     "entry_price": entry_price,
@@ -183,5 +188,6 @@ class IndexRulesStrategy(bt.Strategy):
                     "trend": "רווח" if pnl >= 0 else "הפסד",
                     "entry_date": entry_date,
                     "exit_date": exit_date,
-                    "type": "Stop-Loss" if len(pending) == 2 else "Take-Profit",
+                    "type": trade_type,
+                    "what_happened": what_happened,
                 })
