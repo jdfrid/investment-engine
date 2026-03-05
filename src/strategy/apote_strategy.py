@@ -30,6 +30,7 @@ class ApoteStrategy(bt.Strategy):
     def __init__(self):
         self.entry_prices = {}
         self.entry_dates = {}
+        self.entry_bars = {}
         self.closed_trades = []
         self._pending_sells = {}
         self.risk_manager = RiskManager(RISK_MANAGEMENT)
@@ -116,7 +117,7 @@ class ApoteStrategy(bt.Strategy):
                     exit_reason = "trailing_stop"
 
             if exit_reason:
-                self._pending_sells[symbol] = (entry_price, self.entry_dates.get(symbol, ""), exit_reason)
+                self._pending_sells[symbol] = (entry_price, self.entry_dates.get(symbol, ""), exit_reason, data)
                 self.close(data=data)
                 self.entry_prices.pop(symbol, None)
                 self.entry_dates.pop(symbol, None)
@@ -153,6 +154,7 @@ class ApoteStrategy(bt.Strategy):
         if order.isbuy() and hasattr(order, "data") and order.data:
             symbol = getattr(order.data, "_name", str(order.data))
             self.entry_prices[symbol] = order.executed.price
+            self.entry_bars[symbol] = len(self)
             try:
                 dt = getattr(order.executed, "dt", None)
                 self.entry_dates[symbol] = dt.strftime("%Y-%m-%d") if hasattr(dt, "strftime") else str(dt)[:10]
@@ -166,6 +168,7 @@ class ApoteStrategy(bt.Strategy):
                 entry_price = pending[0]
                 entry_date = pending[1] if len(pending) > 1 else ""
                 exit_reason = pending[2] if len(pending) > 2 else "exit"
+                data_feed = pending[3] if len(pending) > 3 else order.data
                 exit_price = order.executed.price
                 qty = abs(float(order.executed.size))
                 cost_buy = entry_price * qty
@@ -177,10 +180,20 @@ class ApoteStrategy(bt.Strategy):
                     exit_date = dt.strftime("%Y-%m-%d") if hasattr(dt, "strftime") else str(dt)[:10]
                 except Exception:
                     exit_date = ""
-                if pnl >= 0:
-                    what_happened = f"רווח ${pnl:,.2f} ({pct:+.1f}%)"
-                else:
-                    what_happened = f"הפסד ${abs(pnl):,.2f} ({pct:.1f}%)"
+                entry_bar = self.entry_bars.pop(symbol, 0)
+                exit_bar = len(self)
+                actual_high = actual_low = entry_price
+                try:
+                    n_held = min(max(1, exit_bar - entry_bar + 1), len(data_feed))
+                    for i in range(n_held):
+                        h = float(data_feed.high[-i])
+                        l = float(data_feed.low[-i])
+                        actual_high = max(actual_high, h)
+                        actual_low = min(actual_low, l)
+                except (IndexError, TypeError, ValueError):
+                    pass
+                days_held = exit_bar - entry_bar
+                what_happened = f"קניה {entry_date} ב-${entry_price:.2f} → מכירה {exit_date} ב-${exit_price:.2f}. בתקופה: שיא ${actual_high:.2f}, שפל ${actual_low:.2f}, {days_held} ימים. תוצאה: {'רווח' if pnl >= 0 else 'הפסד'} ${abs(pnl):,.2f} ({pct:+.1f}%)"
                 self.closed_trades.append({
                     "symbol": symbol,
                     "entry_price": entry_price,

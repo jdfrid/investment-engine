@@ -241,14 +241,16 @@ if "last_metrics" in st.session_state:
         # הוספת רמת סיכון לכל עסקה
         df_trades["level"] = df_trades["symbol"].apply(_symbol_to_level)
 
-        # הוספת "מה קרה" – תוצאה מספרית: רווח/הפסד בסכום ובאחוזים
+        # הוספת "מה קרה" – מה באמת קרה בהיסטוריה: קניה/מכירה, שיא/שפל, תוצאה
         if "what_happened" not in df_trades.columns:
             def _build_what_happened(row):
+                ed = row.get("entry_date") or ""
+                exd = row.get("exit_date") or ""
+                ep = row.get("entry_price") or 0
+                exp = row.get("exit_price") or 0
                 pnl = row.get("pnl", 0) or 0
                 pct = row.get("pct", 0) or 0
-                if pnl >= 0:
-                    return f"רווח ${pnl:,.2f} ({pct:+.1f}%)"
-                return f"הפסד ${abs(pnl):,.2f} ({pct:.1f}%)"
+                return f"קניה {ed} ב-${ep:.2f} → מכירה {exd} ב-${exp:.2f}. תוצאה: {'רווח' if pnl >= 0 else 'הפסד'} ${abs(pnl):,.2f} ({pct:+.1f}%)"
             df_trades["what_happened"] = df_trades.apply(_build_what_happened, axis=1)
 
         # מיפוי עמודות לעברית
