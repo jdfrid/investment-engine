@@ -172,10 +172,10 @@ class IndexRulesStrategy(bt.Strategy):
                 except Exception:
                     exit_date = self._format_date(self.datas[0].datetime.date(0)) if len(self.datas) else ""
                 trade_type = "Stop-Loss" if len(pending) == 2 else "Take-Profit"
-                if trade_type == "Stop-Loss":
-                    what_happened = f"המחיר ירד ב-{abs(pct):.1f}% מהקניה – הופעל Stop-Loss, נמכרה כל הפוזיציה"
+                if pnl >= 0:
+                    what_happened = f"רווח ${pnl:,.2f} ({pct:+.1f}%)"
                 else:
-                    what_happened = f"המחיר עלה ב-{pct:.1f}% מהקניה – הופעל Take-Profit, נמכר רווח בלבד"
+                    what_happened = f"הפסד ${abs(pnl):,.2f} ({pct:.1f}%)"
                 self.closed_trades.append({
                     "symbol": symbol,
                     "entry_price": entry_price,

@@ -177,12 +177,10 @@ class ApoteStrategy(bt.Strategy):
                     exit_date = dt.strftime("%Y-%m-%d") if hasattr(dt, "strftime") else str(dt)[:10]
                 except Exception:
                     exit_date = ""
-                _reason_desc = {
-                    "trend_reversal": "זוהה היפוך מגמה – מחיר מתחת ל-MA",
-                    "stop_loss": f"Stop-Loss דינמי (ATR) הופעל – ירידה של {abs(pct):.1f}%",
-                    "trailing_stop": f"Trailing Stop הופעל – ירידה של {abs(pct):.1f}% מהשיא",
-                }
-                what_happened = _reason_desc.get(exit_reason, f"יציאה – {exit_reason}")
+                if pnl >= 0:
+                    what_happened = f"רווח ${pnl:,.2f} ({pct:+.1f}%)"
+                else:
+                    what_happened = f"הפסד ${abs(pnl):,.2f} ({pct:.1f}%)"
                 self.closed_trades.append({
                     "symbol": symbol,
                     "entry_price": entry_price,
